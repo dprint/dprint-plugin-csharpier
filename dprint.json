@@ -1,8 +1,5 @@
 {
   "indentWidth": 2,
-  "csharpier": {
-    "csharp.indentWidth": 4
-  },
   "excludes": [
     "**/node_modules",
     "**/*-lock.json",

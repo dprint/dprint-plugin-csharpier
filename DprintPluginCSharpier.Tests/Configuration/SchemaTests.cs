@@ -14,190 +14,185 @@ namespace Dprint.Plugins.CSharpier.Configuration;
 [TestFixture]
 public class SchemaTests
 {
-    private const string UpdateEnvVarName = "UPDATE";
+  private const string UpdateEnvVarName = "UPDATE";
 
-    [Test]
-    public void Schema_Generated_SameAsFile()
-    {
-        var filePath = Path.Combine(GetRepositoryRootDir(), "deployment", "schema.json");
-        var expected = GenerateSchema();
+  [Test]
+  public void Schema_Generated_SameAsFile()
+  {
+    var filePath = Path.Combine(GetRepositoryRootDir(), "deployment", "schema.json");
+    var expected = GenerateSchema();
 
-        if (Environment.GetEnvironmentVariable(UpdateEnvVarName) == "1")
-            File.WriteAllText(filePath, expected);
+    if (Environment.GetEnvironmentVariable(UpdateEnvVarName) == "1")
+      File.WriteAllText(filePath, expected);
 
-        var actual = File.Exists(filePath)
-            ? File.ReadAllText(filePath).ReplaceLineEndings("\n")
-            : "";
-        Assert.That(
-            actual,
-            Is.EqualTo(expected),
-            $"The schema is out of date. Run the tests with the {UpdateEnvVarName}=1 environment variable to update it."
-        );
-    }
+    var actual = File.Exists(filePath) ? File.ReadAllText(filePath).ReplaceLineEndings("\n") : "";
+    Assert.That(
+      actual,
+      Is.EqualTo(expected),
+      $"The schema is out of date. Run the tests with the {UpdateEnvVarName}=1 environment variable to update it."
+    );
+  }
 
-    private static string GenerateSchema()
-    {
-        using var stream = new MemoryStream();
-        using (
-            var writer = new Utf8JsonWriter(
-                stream,
-                new JsonWriterOptions
-                {
-                    Indented = true,
-                    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-                }
-            )
-        )
+  private static string GenerateSchema()
+  {
+    using var stream = new MemoryStream();
+    using (
+      var writer = new Utf8JsonWriter(
+        stream,
+        new JsonWriterOptions
         {
-            writer.WriteStartObject();
-            writer.WriteString("$schema", "http://json-schema.org/draft-07/schema#");
-            // the version is filled in when releasing
-            writer.WriteString(
-                "$id",
-                "https://plugins.dprint.dev/dprint/dprint-plugin-csharpier/0.0.0/schema.json"
-            );
-            writer.WriteString("type", "object");
-            WriteDefinitions(writer);
-            WriteProperties(writer);
-            writer.WriteEndObject();
+          Indented = true,
+          Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         }
-
-        return Encoding.UTF8.GetString(stream.ToArray()).ReplaceLineEndings("\n") + "\n";
-    }
-
-    private static void WriteDefinitions(Utf8JsonWriter writer)
-    {
-        writer.WriteStartObject("definitions");
-
-        writer.WriteStartObject("lineWidth");
-        writer.WriteString(
-            "description",
-            "The width of a line the printer will try to stay under. Note that the printer may exceed this width in certain cases."
-        );
-        writer.WriteString("type", "number");
-        writer.WriteEndObject();
-
-        writer.WriteStartObject("indentWidth");
-        writer.WriteString("description", "The number of characters for an indent.");
-        writer.WriteString("type", "number");
-        writer.WriteEndObject();
-
-        writer.WriteStartObject("useTabs");
-        writer.WriteString("description", "Whether to use tabs (true) or spaces (false).");
-        writer.WriteString("type", "boolean");
-        writer.WriteEndObject();
-
-        writer.WriteStartObject("newLineKind");
-        writer.WriteString("description", "The kind of newline to use.");
-        writer.WriteString("type", "string");
-        writer.WriteStartArray("oneOf");
-        WriteConst(
-            writer,
-            "auto",
-            "For each file, uses the newline kind found at the end of the last line."
-        );
-        WriteConst(writer, "crlf", "Uses carriage return, line feed.");
-        WriteConst(writer, "lf", "Uses line feed.");
-        WriteConst(
-            writer,
-            "system",
-            "Uses line feed, because the plugin is unable to see the system standard."
-        );
-        writer.WriteEndArray();
-        writer.WriteEndObject();
-
-        writer.WriteEndObject();
-    }
-
-    private static void WriteProperties(Utf8JsonWriter writer)
-    {
-        var (defaultConfig, _) = ConfigurationResolver.Resolve(
-            new(),
-            new Dictionary<string, object>()
-        );
-        writer.WriteStartObject("properties");
-
-        writer.WriteStartObject("locked");
-        writer.WriteString(
-            "description",
-            "Whether the configuration is not allowed to be overriden or extended."
-        );
-        writer.WriteString("type", "boolean");
-        writer.WriteEndObject();
-
-        WriteLanguageProperties(writer, "", null);
-        WriteLanguageProperties(writer, ConfigurationResolver.CSharpPrefix, defaultConfig.CSharp);
-        WriteLanguageProperties(writer, ConfigurationResolver.XmlPrefix, defaultConfig.Xml);
-
-        writer.WriteStartObject("includeGenerated");
-        writer.WriteString(
-            "description",
-            "Whether to format generated files, which are files with a name like *.g.cs or *.designer.cs and C# files that start with an <auto-generated> comment."
-        );
-        writer.WriteString("type", "boolean");
-        writer.WriteBoolean("default", defaultConfig.IncludeGenerated);
-        writer.WriteEndObject();
-
-        writer.WriteStartObject("xmlWhitespaceSensitivity");
-        writer.WriteString(
-            "description",
-            "How whitespace in the text of XML elements is handled. Defaults to \"ignore\" for .xaml and .axaml files and \"strict\" for other files."
-        );
-        writer.WriteString("type", "string");
-        writer.WriteStartArray("oneOf");
-        WriteConst(writer, "strict", "Keeps the whitespace in text because it may be significant.");
-        WriteConst(writer, "ignore", "Formats the whitespace in text.");
-        writer.WriteEndArray();
-        writer.WriteEndObject();
-
-        writer.WriteEndObject();
-    }
-
-    private static void WriteLanguageProperties(
-        Utf8JsonWriter writer,
-        string prefix,
-        LanguageConfiguration? defaults
+      )
     )
     {
-        WriteRef("lineWidth", defaults?.LineWidth);
-        WriteRef("indentWidth", defaults?.IndentWidth);
-        WriteRef("useTabs", defaults?.UseTabs);
-        WriteRef("newLineKind", defaults?.NewLineKind);
-
-        void WriteRef(string name, object? defaultValue)
-        {
-            writer.WriteStartObject(prefix + name);
-            writer.WriteString("$ref", $"#/definitions/{name}");
-            switch (defaultValue)
-            {
-                case int intValue:
-                    writer.WriteNumber("default", intValue);
-                    break;
-                case bool boolValue:
-                    writer.WriteBoolean("default", boolValue);
-                    break;
-                case NewLineKind newLineKind:
-                    writer.WriteString("default", newLineKind.ToString().ToLowerInvariant());
-                    break;
-            }
-            writer.WriteEndObject();
-        }
+      writer.WriteStartObject();
+      writer.WriteString("$schema", "http://json-schema.org/draft-07/schema#");
+      // the version is filled in when releasing
+      writer.WriteString(
+        "$id",
+        "https://plugins.dprint.dev/dprint/dprint-plugin-csharpier/0.0.0/schema.json"
+      );
+      writer.WriteString("type", "object");
+      WriteDefinitions(writer);
+      WriteProperties(writer);
+      writer.WriteEndObject();
     }
 
-    private static void WriteConst(Utf8JsonWriter writer, string value, string description)
+    return Encoding.UTF8.GetString(stream.ToArray()).ReplaceLineEndings("\n") + "\n";
+  }
+
+  private static void WriteDefinitions(Utf8JsonWriter writer)
+  {
+    writer.WriteStartObject("definitions");
+
+    writer.WriteStartObject("lineWidth");
+    writer.WriteString(
+      "description",
+      "The width of a line the printer will try to stay under. Note that the printer may exceed this width in certain cases."
+    );
+    writer.WriteString("type", "number");
+    writer.WriteEndObject();
+
+    writer.WriteStartObject("indentWidth");
+    writer.WriteString("description", "The number of characters for an indent.");
+    writer.WriteString("type", "number");
+    writer.WriteEndObject();
+
+    writer.WriteStartObject("useTabs");
+    writer.WriteString("description", "Whether to use tabs (true) or spaces (false).");
+    writer.WriteString("type", "boolean");
+    writer.WriteEndObject();
+
+    writer.WriteStartObject("newLineKind");
+    writer.WriteString("description", "The kind of newline to use.");
+    writer.WriteString("type", "string");
+    writer.WriteStartArray("oneOf");
+    WriteConst(
+      writer,
+      "auto",
+      "For each file, uses the newline kind found at the end of the last line."
+    );
+    WriteConst(writer, "crlf", "Uses carriage return, line feed.");
+    WriteConst(writer, "lf", "Uses line feed.");
+    WriteConst(
+      writer,
+      "system",
+      "Uses line feed, because the plugin is unable to see the system standard."
+    );
+    writer.WriteEndArray();
+    writer.WriteEndObject();
+
+    writer.WriteEndObject();
+  }
+
+  private static void WriteProperties(Utf8JsonWriter writer)
+  {
+    var (defaultConfig, _) = ConfigurationResolver.Resolve(new(), new Dictionary<string, object>());
+    writer.WriteStartObject("properties");
+
+    writer.WriteStartObject("locked");
+    writer.WriteString(
+      "description",
+      "Whether the configuration is not allowed to be overriden or extended."
+    );
+    writer.WriteString("type", "boolean");
+    writer.WriteEndObject();
+
+    WriteLanguageProperties(writer, "", null);
+    WriteLanguageProperties(writer, ConfigurationResolver.CSharpPrefix, defaultConfig.CSharp);
+    WriteLanguageProperties(writer, ConfigurationResolver.XmlPrefix, defaultConfig.Xml);
+
+    writer.WriteStartObject("includeGenerated");
+    writer.WriteString(
+      "description",
+      "Whether to format generated files, which are files with a name like *.g.cs or *.designer.cs and C# files that start with an <auto-generated> comment."
+    );
+    writer.WriteString("type", "boolean");
+    writer.WriteBoolean("default", defaultConfig.IncludeGenerated);
+    writer.WriteEndObject();
+
+    writer.WriteStartObject("xmlWhitespaceSensitivity");
+    writer.WriteString(
+      "description",
+      "How whitespace in the text of XML elements is handled. Defaults to \"ignore\" for .xaml and .axaml files and \"strict\" for other files."
+    );
+    writer.WriteString("type", "string");
+    writer.WriteStartArray("oneOf");
+    WriteConst(writer, "strict", "Keeps the whitespace in text because it may be significant.");
+    WriteConst(writer, "ignore", "Formats the whitespace in text.");
+    writer.WriteEndArray();
+    writer.WriteEndObject();
+
+    writer.WriteEndObject();
+  }
+
+  private static void WriteLanguageProperties(
+    Utf8JsonWriter writer,
+    string prefix,
+    LanguageConfiguration? defaults
+  )
+  {
+    WriteRef("lineWidth", defaults?.LineWidth);
+    WriteRef("indentWidth", defaults?.IndentWidth);
+    WriteRef("useTabs", defaults?.UseTabs);
+    WriteRef("newLineKind", defaults?.NewLineKind);
+
+    void WriteRef(string name, object? defaultValue)
     {
-        writer.WriteStartObject();
-        writer.WriteString("const", value);
-        writer.WriteString("description", description);
-        writer.WriteEndObject();
+      writer.WriteStartObject(prefix + name);
+      writer.WriteString("$ref", $"#/definitions/{name}");
+      switch (defaultValue)
+      {
+        case int intValue:
+          writer.WriteNumber("default", intValue);
+          break;
+        case bool boolValue:
+          writer.WriteBoolean("default", boolValue);
+          break;
+        case NewLineKind newLineKind:
+          writer.WriteString("default", newLineKind.ToString().ToLowerInvariant());
+          break;
+      }
+      writer.WriteEndObject();
     }
+  }
 
-    private static string GetRepositoryRootDir()
-    {
-        var dir = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
-        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "DprintPluginCSharpier.sln")))
-            dir = dir.Parent;
-        return dir?.FullName
-            ?? throw new Exception("Could not find the root directory of the repository.");
-    }
+  private static void WriteConst(Utf8JsonWriter writer, string value, string description)
+  {
+    writer.WriteStartObject();
+    writer.WriteString("const", value);
+    writer.WriteString("description", description);
+    writer.WriteEndObject();
+  }
+
+  private static string GetRepositoryRootDir()
+  {
+    var dir = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
+    while (dir != null && !File.Exists(Path.Combine(dir.FullName, "DprintPluginCSharpier.sln")))
+      dir = dir.Parent;
+    return dir?.FullName
+      ?? throw new Exception("Could not find the root directory of the repository.");
+  }
 }
