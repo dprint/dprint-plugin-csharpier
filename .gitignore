@@ -1,0 +1,6 @@
+.vs
+bin
+obj
+plugin.wasm
+deployment/npm/LICENSE
+deployment/npm/node_modules

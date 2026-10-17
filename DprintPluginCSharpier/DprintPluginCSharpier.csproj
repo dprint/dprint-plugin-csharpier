@@ -1,0 +1,82 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Dprint.Plugins.CSharpier</RootNamespace>
+    <AssemblyName>dprint-plugin-csharpier</AssemblyName>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Version>0.0.0</Version>
+    <Authors>David Sherret</Authors>
+    <Company>Dprint Code Formatting</Company>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <IlcLlvmVersion>10.0.0-rc.1.26357.1</IlcLlvmVersion>
+  </PropertyGroup>
+
+  <!-- Compiles to a Wasm module with NativeAOT-LLVM when publishing with `-r wasi-wasm` -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'wasi-wasm'">
+    <NativeLib>Shared</NativeLib>
+    <PublishTrimmed>true</PublishTrimmed>
+    <SelfContained>true</SelfContained>
+    <UseAppHost>false</UseAppHost>
+    <MSBuildEnableWorkloadResolver>false</MSBuildEnableWorkloadResolver>
+    <!-- link a core Wasm module instead of a component because dprint calls the module's exports directly -->
+    <LinkerFlavor>lld</LinkerFlavor>
+    <!-- otherwise the module includes DWARF debug info, which is over half its size. Stack traces in
+         error messages don't use it. -->
+    <DebugType>none</DebugType>
+    <!-- CSharpier and Roslyn produce many trim warnings for code that the plugin doesn't use -->
+    <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
+    <!-- otherwise reading XML links in an HTTP client, which imports functions dprint doesn't provide -->
+    <XmlResolverIsNetworkingEnabledByDefault>false</XmlResolverIsNetworkingEnabledByDefault>
+    <!-- formatting XML always serializes its syntax tree to JSON for debugging, which needs this even though the JSON isn't used -->
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="../LICENSE" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CSharpier.Core" Version="1.3.0" />
+    <PackageReference Include="Krafs.Publicizer" Version="2.3.0" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'wasi-wasm'">
+    <PackageReference Include="Microsoft.DotNet.ILCompiler.LLVM" Version="$(IlcLlvmVersion)" />
+    <PackageReference
+      Include="runtime.$(NETCoreSdkPortableRuntimeIdentifier).Microsoft.DotNet.ILCompiler.LLVM"
+      Version="$(IlcLlvmVersion)"
+    />
+    <IlcArg Include="--substitution:$(MSBuildThisFileDirectory)ILLink.Substitutions.xml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- CSharpier's public API doesn't support C# scripts, the per file type defaults, or
+         reporting why a file failed to format, so this uses the same internal API as its CLI -->
+    <Publicize Include="CSharpier.Core" />
+  </ItemGroup>
+
+  <!-- The compiler targets WASI preview 2 by default, but dprint provides preview 1 -->
+  <Target
+    Name="UseWasiPreview1"
+    BeforeTargets="SetupProperties"
+    Condition="'$(RuntimeIdentifier)' == 'wasi-wasm'"
+  >
+    <PropertyGroup>
+      <IlcLlvmTarget>wasm32-wasip1</IlcLlvmTarget>
+    </PropertyGroup>
+  </Target>
+
+  <!-- The compiler doesn't recompile when the substitutions change, so update its response file when they do -->
+  <Target
+    Name="TouchIlcRspFileWhenSubstitutionsChange"
+    AfterTargets="WriteIlcRspFileForCompilation"
+    BeforeTargets="IlcCompile"
+    Inputs="ILLink.Substitutions.xml"
+    Outputs="%(ManagedBinary.IlcRspFile)"
+    Condition="'$(RuntimeIdentifier)' == 'wasi-wasm'"
+  >
+    <Touch Files="%(ManagedBinary.IlcRspFile)" />
+  </Target>
+</Project>

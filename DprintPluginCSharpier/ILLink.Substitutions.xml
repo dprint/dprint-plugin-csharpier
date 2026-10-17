@@ -1,0 +1,11 @@
+<linker>
+  <assembly fullname="System.Private.CoreLib">
+    <!-- Scheduling a timer in WASI imports wasi:clocks and wasi:io functions, which dprint doesn't
+         provide. Timers can't fire in the plugin because nothing runs the WASI event loop, so this
+         never schedules them. CSharpier only references timers through code it doesn't run (ex. the
+         asynchronous file reading of an XmlReader). -->
+    <type fullname="System.Threading.TimerQueue">
+      <method signature="System.Boolean SetTimer(System.UInt32)" body="stub" value="false" />
+    </type>
+  </assembly>
+</linker>
