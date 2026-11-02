@@ -44,10 +44,7 @@
 
   <ItemGroup Condition="'$(RuntimeIdentifier)' == 'wasi-wasm'">
     <PackageReference Include="Microsoft.DotNet.ILCompiler.LLVM" Version="$(IlcLlvmVersion)" />
-    <PackageReference
-      Include="runtime.$(NETCoreSdkPortableRuntimeIdentifier).Microsoft.DotNet.ILCompiler.LLVM"
-      Version="$(IlcLlvmVersion)"
-    />
+    <PackageReference Include="runtime.$(NETCoreSdkPortableRuntimeIdentifier).Microsoft.DotNet.ILCompiler.LLVM" Version="$(IlcLlvmVersion)" />
     <IlcArg Include="--substitution:$(MSBuildThisFileDirectory)ILLink.Substitutions.xml" />
   </ItemGroup>
 
@@ -58,25 +55,14 @@
   </ItemGroup>
 
   <!-- The compiler targets WASI preview 2 by default, but dprint provides preview 1 -->
-  <Target
-    Name="UseWasiPreview1"
-    BeforeTargets="SetupProperties"
-    Condition="'$(RuntimeIdentifier)' == 'wasi-wasm'"
-  >
+  <Target Name="UseWasiPreview1" BeforeTargets="SetupProperties" Condition="'$(RuntimeIdentifier)' == 'wasi-wasm'">
     <PropertyGroup>
       <IlcLlvmTarget>wasm32-wasip1</IlcLlvmTarget>
     </PropertyGroup>
   </Target>
 
   <!-- The compiler doesn't recompile when the substitutions change, so update its response file when they do -->
-  <Target
-    Name="TouchIlcRspFileWhenSubstitutionsChange"
-    AfterTargets="WriteIlcRspFileForCompilation"
-    BeforeTargets="IlcCompile"
-    Inputs="ILLink.Substitutions.xml"
-    Outputs="%(ManagedBinary.IlcRspFile)"
-    Condition="'$(RuntimeIdentifier)' == 'wasi-wasm'"
-  >
+  <Target Name="TouchIlcRspFileWhenSubstitutionsChange" AfterTargets="WriteIlcRspFileForCompilation" BeforeTargets="IlcCompile" Inputs="ILLink.Substitutions.xml" Outputs="%(ManagedBinary.IlcRspFile)" Condition="'$(RuntimeIdentifier)' == 'wasi-wasm'">
     <Touch Files="%(ManagedBinary.IlcRspFile)" />
   </Target>
 </Project>
