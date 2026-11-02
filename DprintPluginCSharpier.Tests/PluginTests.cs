@@ -36,6 +36,14 @@ public class PluginTests
                 """.Trim()
             )
         );
+        Assert.That(
+            json,
+            Does.Contain(
+                """
+                "supportsRangeFormatting":false
+                """.Trim()
+            )
+        );
     }
 
     [Test]

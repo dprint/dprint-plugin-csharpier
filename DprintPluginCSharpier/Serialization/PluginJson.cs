@@ -31,6 +31,7 @@ public static class PluginJson
                 "updateUrl",
                 "https://plugins.dprint.dev/dprint/dprint-plugin-csharpier/latest.json"
             );
+            writer.WriteBoolean("supportsRangeFormatting", false);
             writer.WriteEndObject();
         });
     }
