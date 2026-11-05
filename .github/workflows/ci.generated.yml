@@ -45,6 +45,8 @@ jobs:
           echo "DPRINT_PATH=$HOME/.dprint/bin/dprint" >> "$GITHUB_ENV"
       - name: Build Wasm
         run: dotnet publish DprintPluginCSharpier -c Release -r wasi-wasm
+      - name: Generate config schema
+        run: 'deno run -A --minimum-dependency-age=0 jsr:@dprint/automation@0.14.3/tasks/publish-schema DprintPluginCSharpier/bin/Release/net10.0/wasi-wasm/publish/dprint-plugin-csharpier.wasm deployment/schema.json --extension cs'
       - name: Test Wasm
         env:
           DPRINT_CSHARPIER_WASM_PATH: "${{ github.workspace }}/DprintPluginCSharpier/bin/Release/net10.0/wasi-wasm/publish/dprint-plugin-csharpier.wasm"
